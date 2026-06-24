@@ -1,0 +1,25 @@
+{
+  "name": "com.kidzdev.unity.audio",
+  "version": "1.0.0",
+  "displayName": "KidzDev Unity Audio",
+  "description": "Production-grade BGM/SFX/Ambience audio service. UniTask async, AudioMixer-backed with dB conversion, cancellable crossfades, pooled sources, plug-in clip loader (Resources default, optional Addressables adapter), and plug-in volume store.",
+  "unity": "6000.0",
+  "author": {
+    "name": "KidzDev"
+  },
+  "dependencies": {
+    "com.cysharp.unitask": "2.5.11"
+  },
+  "samples": [
+    {
+      "displayName": "Demo",
+      "description": "Ready-to-run scene: BGM crossfade, SFX pool, 3D one-shot, loop SFX, ambience, volume sliders with persistence.",
+      "path": "Samples~/Demo"
+    },
+    {
+      "displayName": "Addressables Loader",
+      "description": "ISoundClipLoader backed by com.kidzdev.unity.addressables-toolkit — ref-counted via IAssetLoader, zero double-load.",
+      "path": "Samples~/AddressablesLoader"
+    }
+  ]
+}

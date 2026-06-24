@@ -1,0 +1,11 @@
+{
+  "name": "KidzDev.Unity.Audio.Tests",
+  "rootNamespace": "KidzDev.Unity.Audio.Tests",
+  "references": [
+    "KidzDev.Unity.Audio",
+    "UniTask",
+    "UnityEngine.TestRunner"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": ["UNITY_INCLUDE_TESTS"]
+}

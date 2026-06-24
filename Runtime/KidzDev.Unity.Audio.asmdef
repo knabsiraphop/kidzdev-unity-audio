@@ -1,0 +1,8 @@
+{
+  "name": "KidzDev.Unity.Audio",
+  "rootNamespace": "KidzDev.Unity.Audio",
+  "references": [
+    "UniTask"
+  ],
+  "autoReferenced": true
+}

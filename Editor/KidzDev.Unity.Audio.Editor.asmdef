@@ -1,0 +1,9 @@
+{
+  "name": "KidzDev.Unity.Audio.Editor",
+  "rootNamespace": "KidzDev.Unity.Audio.Editor",
+  "references": [
+    "KidzDev.Unity.Audio"
+  ],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": false
+}
