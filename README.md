@@ -78,6 +78,8 @@ public class GameBootstrap : MonoBehaviour
 
 Inspector reference for `AudioServiceSettings.asset`:
 
+![AudioServiceSettings inspector](Documentation~/images/settings.png)
+
 | Field | Description |
 |---|---|
 | **Addressable** | When enabled, clip keys are resolved via `AddressablesSoundClipLoader` instead of `ResourcesSoundClipLoader`. Requires the Addressables Loader sample to be imported. |
@@ -97,6 +99,8 @@ Inspector reference for `AudioServiceSettings.asset`:
 ## Sound Library
 
 Inspector reference for `SoundLibrary.asset`. Each entry in **Sound Entries** maps a string key to a clip and its playback settings:
+
+![SoundLibrary inspector](Documentation~/images/library.png)
 
 | Field | Description |
 |---|---|
