@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-06-27
+
+### Changed
+- Addressables Loader sample: `AddressablesSoundClipLoader` now uses Unity's built-in `Addressables.LoadAssetAsync` / `Addressables.Release` directly — removes the dependency on `com.kidzdev.unity.addressables-toolkit`
+- Addressables Loader sample: `.asmdef` now references `Unity.Addressables` instead of `KidzDev.Unity.AddressablesToolkit`
+- Addressables Loader sample: fixed control-flow bug where `_inflight.Remove` and `tcs.TrySetResult` were only reached on the happy path; moved them inside the try block so concurrent callers are always unblocked
+- README: updated "Using with Addressables" section to reflect pure-Addressables implementation (no extra KidzDev package required)
+
 ## [1.0.1] - 2026-06-27
 
 ### Added

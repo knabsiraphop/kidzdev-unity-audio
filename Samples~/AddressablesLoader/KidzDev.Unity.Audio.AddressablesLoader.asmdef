@@ -3,7 +3,7 @@
   "rootNamespace": "KidzDev.Unity.Audio.Samples",
   "references": [
     "KidzDev.Unity.Audio",
-    "KidzDev.Unity.AddressablesToolkit",
+    "Unity.Addressables",
     "UniTask"
   ],
   "autoReferenced": false

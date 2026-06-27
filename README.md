@@ -7,13 +7,13 @@ Production-grade BGM/SFX/Ambience audio service for Unity. UniTask async, AudioM
 Add via **Package Manager → Add package from git URL**:
 
 ```
-https://github.com/knabsiraphop/kidzdev-unity-audio.git#v1.0.1
+https://github.com/knabsiraphop/kidzdev-unity-audio.git#v1.0.2
 ```
 
 Or directly in `Packages/manifest.json`:
 
 ```json
-"com.kidzdev.unity.audio": "https://github.com/knabsiraphop/kidzdev-unity-audio.git#v1.0.1"
+"com.kidzdev.unity.audio": "https://github.com/knabsiraphop/kidzdev-unity-audio.git#v1.0.2"
 ```
 
 > **Required dependency:** UniTask (`com.cysharp.unitask`). Add the OpenUPM scoped registry if not already present:
@@ -235,11 +235,13 @@ Attach these to GameObjects to drive audio without code:
 
 ## Using with Addressables
 
-The package ships a sample that integrates with [`com.kidzdev.unity.addressables-toolkit`](https://github.com/knabsiraphop/kidzdev-unity-addressables-toolkit).
+The package ships an **Addressables Loader** sample — a pure `ISoundClipLoader` implementation that uses Unity's built-in Addressables package with no extra dependencies.
 
 ### 1 — Import the sample
 
 In **Package Manager**, find *KidzDev Unity Audio* and import the **Addressables Loader** sample. This adds `AddressablesSoundClipLoader.cs` (and its asmdef) to your project.
+
+> **Requires:** `com.unity.addressables` installed in your project.
 
 ### 2 — Mark clips as Addressable
 
@@ -256,13 +258,13 @@ Check **Addressable** on your `AudioServiceSettings` asset. The system will auto
 AudioSystem.Configure();
 await AudioSystem.InitializeAsync(destroyCancellationToken);
 
-// Now clips are loaded from Addressables, ref-counted via AssetScope.
+// Clips are now loaded via Addressables.LoadAssetAsync.
 AudioSystem.PlayBgm("Audio/bgm_main");
 ```
 
 ### How it works under the hood
 
-`AddressablesSoundClipLoader` implements `ISoundClipLoader` using `IAssetLoader` from the Addressables Toolkit. Every clip is ref-counted via `AssetScope` — `Release` / `ReleaseCategory` correctly decrements the ref count and unloads the bundle when no other scope holds it.
+`AddressablesSoundClipLoader` calls `Addressables.LoadAssetAsync` / `Addressables.Release` directly. One `AsyncOperationHandle` is held per unique key; repeat calls return the cached clip without a second load. Concurrent first-loads for the same key share one in-flight request.
 
 ```csharp
 // Manual plug-in (if you're not using AudioServiceSettings.Addressable)
@@ -389,7 +391,7 @@ public class LevelManager : MonoBehaviour
 | Sample | Contents |
 |---|---|
 | **Demo** | Ready-to-run scene: BGM crossfade, SFX pool, 3D one-shot, loop SFX, ambience, volume sliders, mute, playlist |
-| **Addressables Loader** | `AddressablesSoundClipLoader` — plug-in ISoundClipLoader backed by `IAssetLoader`/`AssetScope` from `com.kidzdev.unity.addressables-toolkit` |
+| **Addressables Loader** | `AddressablesSoundClipLoader` — plug-in ISoundClipLoader backed by Unity Addressables (`Addressables.LoadAssetAsync`), no extra dependencies |
 
 ---
 

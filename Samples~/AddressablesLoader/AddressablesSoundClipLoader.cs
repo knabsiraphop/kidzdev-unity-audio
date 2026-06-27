@@ -1,19 +1,19 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using KidzDev.Unity.AddressablesToolkit;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace KidzDev.Unity.Audio.Samples
 {
     /// <summary>
-    /// ISoundClipLoader backed by IAssetLoader from com.kidzdev.unity.addressables-toolkit.
+    /// ISoundClipLoader backed by Unity Addressables.
     ///
-    /// Each unique key calls the toolkit loader exactly once; repeat calls return the cached clip
-    /// (fixing the ref-count leak where PlaySfx x100 would accumulate 100 handles).
-    /// Concurrent first-loads for the same key share one in-flight request (C3 race fix).
-    /// Release decrements the single handle, matching the single load.
+    /// Each unique key loads exactly one Addressables handle; repeat calls return the
+    /// cached clip without a second load. Concurrent first-loads for the same key share
+    /// one in-flight request. Release decrements the single handle.
     ///
     /// Usage — pass at AudioManager construction:
     /// <code>
@@ -24,33 +24,48 @@ namespace KidzDev.Unity.Audio.Samples
     /// </summary>
     public sealed class AddressablesSoundClipLoader : ISoundClipLoader
     {
-        readonly IAssetLoader _assetLoader;
-        readonly Dictionary<string, AudioClip> _cache   = new();
+        readonly Dictionary<string, AudioClip> _cache = new();
+        readonly Dictionary<string, AsyncOperationHandle<AudioClip>> _handles = new();
         readonly Dictionary<string, UniTaskCompletionSource<AudioClip>> _inflight = new();
-
-        public AddressablesSoundClipLoader(IAssetLoader assetLoader = null)
-        {
-            _assetLoader = assetLoader ?? AssetLoader.Default;
-        }
 
         public async UniTask<AudioClip> LoadAsync(string key, CancellationToken ct = default)
         {
-            // Fast path: clip already loaded (one toolkit handle held)
             if (_cache.TryGetValue(key, out var cached)) return cached;
 
-            // Concurrent callers for the same key share one in-flight request
             if (_inflight.TryGetValue(key, out var pending)) return await pending.Task;
 
             var tcs = new UniTaskCompletionSource<AudioClip>();
             _inflight[key] = tcs;
 
-            AudioClip clip;
             try
             {
-                clip = await _assetLoader.LoadAsync<AudioClip>(key, ct);
-                if (clip == null)
+                var handle = Addressables.LoadAssetAsync<AudioClip>(key);
+
+                AudioClip clip;
+                try
+                {
+                    clip = await handle.ToUniTask(cancellationToken: ct);
+                }
+                catch
+                {
+                    Addressables.Release(handle);
+                    throw;
+                }
+
+                if (clip != null)
+                {
+                    _cache[key] = clip;
+                    _handles[key] = handle;
+                }
+                else
+                {
+                    Addressables.Release(handle);
                     Debug.LogWarning($"[Audio] Addressables clip not found: '{key}'");
-                if (clip != null) _cache[key] = clip;
+                }
+
+                _inflight.Remove(key);
+                tcs.TrySetResult(clip);
+                return clip;
             }
             catch (OperationCanceledException)
             {
@@ -64,24 +79,22 @@ namespace KidzDev.Unity.Audio.Samples
                 tcs.TrySetException(ex);
                 throw;
             }
-
-            _inflight.Remove(key);
-            tcs.TrySetResult(clip);
-            return clip;
         }
 
         public void Release(string key)
         {
-            if (!_cache.ContainsKey(key)) return;
-            _cache.Remove(key);
-            _assetLoader.Release<AudioClip>(key); // exactly one Release per one LoadAsync call to the toolkit
+            if (!_cache.Remove(key)) return;
+            if (_handles.TryGetValue(key, out var handle))
+            {
+                _handles.Remove(key);
+                Addressables.Release(handle);
+            }
         }
 
         public void ReleaseAll()
         {
-            foreach (var key in _cache.Keys)
-                _assetLoader.Release<AudioClip>(key);
-            _cache.Clear();
+            foreach (var key in new List<string>(_cache.Keys))
+                Release(key);
         }
     }
 }
