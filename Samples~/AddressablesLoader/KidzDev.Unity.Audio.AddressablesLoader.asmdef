@@ -1,0 +1,10 @@
+{
+  "name": "KidzDev.Unity.Audio.AddressablesLoader",
+  "rootNamespace": "KidzDev.Unity.Audio.Samples",
+  "references": [
+    "KidzDev.Unity.Audio",
+    "KidzDev.Unity.AddressablesToolkit",
+    "UniTask"
+  ],
+  "autoReferenced": false
+}

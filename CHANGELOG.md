@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-06-27
+
+### Added
+- Demo sample: ready-to-run scene with BGM crossfade, SFX pool, 3D one-shot, loop SFX, ambience, volume sliders with persistence, and playlist (`AudioDemo.unity`)
+- Addressables Loader sample: `AddressablesSoundClipLoader` backed by `IAssetLoader`/`AssetScope` from `com.kidzdev.unity.addressables-toolkit`
+
+### Changed
+- README: added full setup guide with step-by-step instructions, inspector reference tables for `AudioServiceSettings` and `SoundLibrary`, and comprehensive code examples
+- README: added inspector screenshots via `Documentation~/images/`
+
 ## [1.0.0] - 2026-06-24
 
 ### Added

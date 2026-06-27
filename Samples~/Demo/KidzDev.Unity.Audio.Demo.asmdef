@@ -1,0 +1,10 @@
+{
+  "name": "KidzDev.Unity.Audio.Demo",
+  "rootNamespace": "KidzDev.Unity.Audio.Demo",
+  "references": [
+    "KidzDev.Unity.Audio",
+    "UniTask",
+    "Unity.TextMeshPro"
+  ],
+  "autoReferenced": false
+}

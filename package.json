@@ -1,6 +1,6 @@
 {
   "name": "com.kidzdev.unity.audio",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "displayName": "KidzDev Unity Audio",
   "description": "Production-grade BGM/SFX/Ambience audio service. UniTask async, AudioMixer-backed with dB conversion, cancellable crossfades, pooled sources, plug-in clip loader (Resources default, optional Addressables adapter), and plug-in volume store.",
   "unity": "6000.0",
