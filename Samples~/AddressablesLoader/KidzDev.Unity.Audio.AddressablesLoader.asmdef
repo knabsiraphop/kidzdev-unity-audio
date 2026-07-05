@@ -4,6 +4,7 @@
   "references": [
     "KidzDev.Unity.Audio",
     "Unity.Addressables",
+    "Unity.ResourceManager",
     "UniTask"
   ],
   "autoReferenced": false

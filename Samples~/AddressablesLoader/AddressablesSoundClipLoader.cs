@@ -44,7 +44,10 @@ namespace KidzDev.Unity.Audio.Samples
                 AudioClip clip;
                 try
                 {
-                    clip = await handle.ToUniTask(cancellationToken: ct);
+                    // Await the load, then read the typed result off the handle. Reading handle.Result avoids
+                    // binding to the non-generic AsyncOperationHandle.ToUniTask() overload (which yields void).
+                    await handle.ToUniTask(cancellationToken: ct);
+                    clip = handle.Result;
                 }
                 catch
                 {
