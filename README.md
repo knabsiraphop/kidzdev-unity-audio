@@ -405,6 +405,10 @@ public class LevelManager : MonoBehaviour
 
 ---
 
+## Authorship
+
+Built with [Claude Code](https://claude.com/claude-code), Anthropic's AI coding agent: the design, direction, and review are human ([@knabsiraphop](https://github.com/knabsiraphop)); most of the implementation code was written by Claude under that direction. All code is original — nothing copied from or bundled with third-party sources.
+
 ## License
 
 MIT — see [LICENSE.md](LICENSE.md).
