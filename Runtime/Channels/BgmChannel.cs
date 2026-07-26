@@ -11,8 +11,13 @@ namespace KidzDev.Unity.Audio
         AudioSource _current;
         AudioSource _previous;
         float _volume = 1f;
+        // Per-entry volume of whatever _current is playing, kept so SetVolume can recompose
+        // master*category*entry instead of stomping the entry factor.
+        float _entryVolume = 1f;
         bool _paused;
         CancellationTokenSource _fadeCts;
+
+        float TargetVolume => _entryVolume * _volume;
 
         internal BgmChannel(Transform root)
         {
@@ -47,6 +52,7 @@ namespace KidzDev.Unity.Audio
             newSrc.Play();
             if (_paused) newSrc.Pause();
 
+            _entryVolume = entry?.Volume ?? 1f;
             float oldStartVol = oldSrc.volume;
             float inv = fadeDuration > 0f ? 1f / fadeDuration : float.MaxValue;
             float elapsed = 0f;
@@ -58,13 +64,14 @@ namespace KidzDev.Unity.Audio
                     await UniTask.Yield(PlayerLoopTiming.Update, ct);
                     elapsed += Time.unscaledDeltaTime;
                     float t = Mathf.Min(elapsed * inv, 1f);
-                    newSrc.volume = t * _volume;
+                    // Read TargetVolume per frame so a mid-fade SetVolume isn't overwritten.
+                    newSrc.volume = t * TargetVolume;
                     if (oldSrc.isPlaying) oldSrc.volume = (1f - t) * oldStartVol;
                 }
             }
             catch (OperationCanceledException) { return; }
 
-            newSrc.volume = _volume;
+            newSrc.volume = TargetVolume;
             oldSrc.Stop();
             oldSrc.clip = null;
         }
@@ -72,10 +79,11 @@ namespace KidzDev.Unity.Audio
         internal void PlayDirect(AudioClip clip, bool loop)
         {
             CancelFade();
+            _entryVolume    = 1f; // no SoundEntry on this path
             _current.Stop();
             _current.clip   = clip;
             _current.loop   = loop;
-            _current.volume = _volume;
+            _current.volume = TargetVolume;
             _current.Play();
         }
 
@@ -121,7 +129,7 @@ namespace KidzDev.Unity.Audio
         internal void SetVolume(float v01)
         {
             _volume = v01;
-            if (_current.isPlaying) _current.volume = v01;
+            if (_current.isPlaying) _current.volume = TargetVolume;
         }
 
         void CancelFade()

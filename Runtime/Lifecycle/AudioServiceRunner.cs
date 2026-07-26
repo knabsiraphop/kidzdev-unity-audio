@@ -19,6 +19,7 @@ namespace KidzDev.Unity.Audio
 
         AudioManager _manager;
 
+        /// <summary>The manager this runner owns. Null before <c>Awake</c> and after the runner is destroyed.</summary>
         public AudioManager Manager => _manager;
 
         void Awake()
@@ -27,7 +28,6 @@ namespace KidzDev.Unity.Audio
             _manager.SetLifetimeCancellationToken(destroyCancellationToken);
             _manager.Configure(_settings);
 
-            // Register as the global default so AudioSystem.Default resolves to this manager.
             AudioSystem.Default = _manager;
 
             if (_autoInitialize)

@@ -23,6 +23,7 @@ namespace KidzDev.Unity.Audio.Demo
 
         [Header("Ambience")]
         [SerializeField] string _ambienceKey = "Audio/amb_wind";
+        [SerializeField] TMP_Text _ambienceLabel;
 
         [Header("Volume Sliders")]
         [SerializeField] Slider _masterSlider;
@@ -34,6 +35,7 @@ namespace KidzDev.Unity.Audio.Demo
 
         bool _loopPlaying;
         bool _ambiencePlaying;
+        int _bgmRequest;
 
         async void Start()
         {
@@ -57,16 +59,23 @@ namespace KidzDev.Unity.Audio.Demo
 
         // ── BGM ──────────────────────────────────────────────────────────────────────
 
-        public void OnPlayBgmA()
-        {
-            AudioSystem.PlayBgm(_bgmKeyA);
-            UpdateBgmLabel();
-        }
+        public void OnPlayBgmA() => PlayBgmThenLabel(_bgmKeyA).Forget();
+        public void OnPlayBgmB() => PlayBgmThenLabel(_bgmKeyB).Forget();
 
-        public void OnPlayBgmB()
+        /// <summary>
+        /// Plays a track and repaints the label, but only if this is still the newest request —
+        /// a superseded PlayBgmAsync returns normally rather than throwing, so without the id check
+        /// the loser's continuation would paint a key the winner hasn't set yet.
+        /// </summary>
+        async UniTask PlayBgmThenLabel(string key)
         {
-            AudioSystem.PlayBgm(_bgmKeyB);
-            UpdateBgmLabel();
+            int id = ++_bgmRequest;
+            try
+            {
+                await AudioSystem.PlayBgmAsync(key, destroyCancellationToken);
+                if (id == _bgmRequest) UpdateBgmLabel();
+            }
+            catch (System.OperationCanceledException) { }
         }
 
         public void OnStopBgm()
@@ -102,6 +111,7 @@ namespace KidzDev.Unity.Audio.Demo
             if (_ambiencePlaying) AudioSystem.StopAmbience();
             else                  AudioSystem.PlayAmbience(_ambienceKey);
             _ambiencePlaying = !_ambiencePlaying;
+            UpdateAmbienceLabel();
         }
 
         // ── Volume ───────────────────────────────────────────────────────────────────
@@ -125,6 +135,11 @@ namespace KidzDev.Unity.Audio.Demo
         void UpdateBgmLabel()
         {
             if (_bgmLabel) _bgmLabel.text = $"BGM: {(AudioSystem.CurrentBgmKey ?? "—")}";
+        }
+
+        void UpdateAmbienceLabel()
+        {
+            if (_ambienceLabel) _ambienceLabel.text = _ambiencePlaying ? $"Ambience: {_ambienceKey}" : "Ambience: —";
         }
     }
 }

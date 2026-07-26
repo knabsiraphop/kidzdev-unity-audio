@@ -12,8 +12,13 @@ namespace KidzDev.Unity.Audio
         CancellationTokenSource _fadeCts;
         string _currentKey;
         float _volume = 1f;
+        // Per-entry volume of the current clip, kept so SetVolume can recompose
+        // master*category*entry instead of stomping the entry factor.
+        float _entryVolume = 1f;
 
         internal string CurrentKey => _currentKey;
+
+        float TargetVolume => _entryVolume * _volume;
 
         internal AmbienceChannel(Transform root)
         {
@@ -31,10 +36,9 @@ namespace KidzDev.Unity.Audio
         internal void SetVolume(float v01)
         {
             _volume = v01;
-            if (_source != null && _source.isPlaying) _source.volume = v01;
+            if (_source != null && _source.isPlaying) _source.volume = TargetVolume;
         }
 
-        // Fades out the current clip (if any) then fades in the new one.
         internal async UniTask PlayAsync(
             string key, AudioClip clip, SoundEntry entry,
             float fadeDuration, CancellationToken lifetimeCt)
@@ -44,8 +48,6 @@ namespace KidzDev.Unity.Audio
             CancelFade();
             _fadeCts = CancellationTokenSource.CreateLinkedTokenSource(lifetimeCt);
             var ct = _fadeCts.Token;
-
-            float targetVol = (entry?.Volume ?? 1f) * _volume;
 
             // ── Fade out current ─────────────────────────────────────────────────────
             if (_source.isPlaying && fadeDuration > 0f)
@@ -65,12 +67,15 @@ namespace KidzDev.Unity.Audio
             }
 
             // ── Switch clip ──────────────────────────────────────────────────────────
+            // Adopt the new entry's volume only here — the fade-out above still belongs
+            // to the outgoing clip.
+            _entryVolume   = entry?.Volume ?? 1f;
             _currentKey    = key;
             _source.Stop();
             _source.clip   = clip;
             _source.loop   = true;
             _source.pitch  = entry?.Pitch ?? 1f;
-            _source.volume = fadeDuration > 0f ? 0f : targetVol;
+            _source.volume = fadeDuration > 0f ? 0f : TargetVolume;
             _source.Play();
 
             // ── Fade in new ──────────────────────────────────────────────────────────
@@ -83,9 +88,10 @@ namespace KidzDev.Unity.Audio
                     {
                         await UniTask.Yield(PlayerLoopTiming.Update, ct);
                         elapsed        += Time.unscaledDeltaTime;
-                        _source.volume  = Mathf.Lerp(0f, targetVol, elapsed / fadeDuration);
+                        // Read TargetVolume per frame so a mid-fade SetVolume isn't overwritten.
+                        _source.volume  = Mathf.Lerp(0f, TargetVolume, elapsed / fadeDuration);
                     }
-                    _source.volume = targetVol;
+                    _source.volume = TargetVolume;
                 }
                 catch (OperationCanceledException) { }
             }

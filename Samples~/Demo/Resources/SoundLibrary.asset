@@ -19,51 +19,33 @@ MonoBehaviour:
     Pitch: 1
     Loop: 1
     BeginTime: 0
-    EndTime: 0
-    FadeIn: 0
-    FadeOut: 0
   - Key: Audio/bgm_b
     Category: 1
     Volume: 0.8
     Pitch: 1.05
     Loop: 1
     BeginTime: 0
-    EndTime: 0
-    FadeIn: 0
-    FadeOut: 0
   - Key: Audio/sfx_click
     Category: 2
     Volume: 1
     Pitch: 1
     Loop: 0
     BeginTime: 0
-    EndTime: 0
-    FadeIn: 0
-    FadeOut: 0
   - Key: Audio/sfx_3d
     Category: 2
     Volume: 1
     Pitch: 1
     Loop: 0
     BeginTime: 0
-    EndTime: 0
-    FadeIn: 0
-    FadeOut: 0
   - Key: Audio/sfx_loop
     Category: 2
     Volume: 0.7
     Pitch: 1
     Loop: 1
     BeginTime: 0
-    EndTime: 0
-    FadeIn: 0
-    FadeOut: 0
   - Key: Audio/amb_wind
     Category: 3
     Volume: 0.5
     Pitch: 1
     Loop: 1
     BeginTime: 0
-    EndTime: 0
-    FadeIn: 0
-    FadeOut: 0

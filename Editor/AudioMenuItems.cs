@@ -43,7 +43,6 @@ namespace KidzDev.Unity.Audio.Editor
         [MenuItem("Tools/Audio/Validate Library")]
         static void ValidateLibrary()
         {
-            // Find all SoundLibrary assets in the project.
             var guids     = AssetDatabase.FindAssets("t:SoundLibrary");
             var errors    = new List<string>();
             var warnings  = new List<string>();
@@ -57,7 +56,6 @@ namespace KidzDev.Unity.Audio.Editor
 
                 lib.BuildMap();
 
-                // Duplicate key check.
                 var seen = new HashSet<string>();
                 foreach (var entry in lib.EditorEntries)
                 {
@@ -71,7 +69,6 @@ namespace KidzDev.Unity.Audio.Editor
                     if (!seen.Add(entry.Key))
                         errors.Add($"[{path}] Duplicate key: '{entry.Key}'");
 
-                    // Resolve check: try Resources.Load.
                     var clip = Resources.Load<AudioClip>(entry.Key);
                     if (clip == null)
                         warnings.Add($"[{path}] Key '{entry.Key}' not found in Resources. (OK if using Addressables.)");

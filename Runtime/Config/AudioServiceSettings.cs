@@ -3,6 +3,18 @@ using UnityEngine.Audio;
 
 namespace KidzDev.Unity.Audio
 {
+    /// <summary>
+    /// Configuration for the audio service: clip library, optional mixer, preload strategy, SFX
+    /// pool sizing, fade durations, and volume-persistence keys. Name the asset
+    /// <c>AudioServiceSettings</c> and put it in a <c>Resources</c> folder for
+    /// <see cref="IAudioService.Configure"/> to find it automatically.
+    /// </summary>
+    /// <remarks>
+    /// The mixer is optional and changes how volumes compose — see
+    /// <see cref="IAudioService.SetMasterVolume"/>. With one assigned, groups named
+    /// <c>BGM</c>, <c>SFX</c>, and <c>Ambience</c> are matched by name and each channel routes to
+    /// its group.
+    /// </remarks>
     [CreateAssetMenu(menuName = "KidzDev/Audio/Settings", fileName = "AudioServiceSettings")]
     public sealed class AudioServiceSettings : ScriptableObject
     {

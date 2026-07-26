@@ -1,5 +1,10 @@
 namespace KidzDev.Unity.Audio
 {
+    /// <summary>
+    /// Persists the four volume levels across sessions. <see cref="PlayerPrefsVolumeStore"/> is the
+    /// default; implement this (or use <see cref="DelegateVolumeStore"/>) to route volumes into
+    /// your own save system instead.
+    /// </summary>
     public interface IVolumeStore
     {
         float GetMasterVolume();

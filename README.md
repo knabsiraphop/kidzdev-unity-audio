@@ -7,13 +7,13 @@ Production-grade BGM/SFX/Ambience audio service for Unity. UniTask async, AudioM
 Add via **Package Manager → Add package from git URL**:
 
 ```
-https://github.com/knabsiraphop/kidzdev-unity-audio.git#v1.0.2
+https://github.com/knabsiraphop/kidzdev-unity-audio.git#v2.0.0
 ```
 
 Or directly in `Packages/manifest.json`:
 
 ```json
-"com.kidzdev.unity.audio": "https://github.com/knabsiraphop/kidzdev-unity-audio.git#v1.0.2"
+"com.kidzdev.unity.audio": "https://github.com/knabsiraphop/kidzdev-unity-audio.git#v2.0.0"
 ```
 
 > **Required dependency:** UniTask (`com.cysharp.unitask`). Add the OpenUPM scoped registry if not already present:

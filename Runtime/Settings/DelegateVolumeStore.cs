@@ -2,6 +2,15 @@ using System;
 
 namespace KidzDev.Unity.Audio
 {
+    /// <summary>
+    /// <see cref="IVolumeStore"/> backed by caller-supplied get/save callbacks — the quickest way
+    /// to route volumes into an existing save system without writing a store class.
+    /// </summary>
+    /// <remarks>
+    /// The ambience callbacks are optional: omit them and ambience volume reads back as
+    /// <c>1f</c> every session and its saves are discarded. Supply them if your UI exposes an
+    /// ambience slider.
+    /// </remarks>
     public sealed class DelegateVolumeStore : IVolumeStore
     {
         readonly Func<float>   _getMaster;

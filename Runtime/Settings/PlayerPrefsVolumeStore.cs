@@ -2,6 +2,11 @@ using UnityEngine;
 
 namespace KidzDev.Unity.Audio
 {
+    /// <summary>
+    /// Default <see cref="IVolumeStore"/> — persists the four levels in <c>PlayerPrefs</c>, each
+    /// defaulting to full volume when unset. The keys come from <see cref="AudioServiceSettings"/>
+    /// when the service is configured.
+    /// </summary>
     public sealed class PlayerPrefsVolumeStore : IVolumeStore
     {
         readonly string _masterKey;

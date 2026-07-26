@@ -7,6 +7,12 @@ using UnityEngine.Audio;
 
 namespace KidzDev.Unity.Audio
 {
+    /// <summary>
+    /// Default <see cref="IAudioService"/> implementation. Constructing one immediately creates a
+    /// persistent <c>[AudioManager]</c> GameObject to host its BGM/SFX/Ambience
+    /// <c>AudioSource</c>s, so prefer letting <see cref="AudioServiceRunner"/> own the instance
+    /// rather than newing it up directly. Main-thread only; not thread-safe.
+    /// </summary>
     public sealed class AudioManager : IAudioService, IDisposable
     {
         // ── Collaborators (injectable) ────────────────────────────────────────────────
@@ -43,27 +49,44 @@ namespace KidzDev.Unity.Audio
         // ── State ─────────────────────────────────────────────────────────────────────
         bool _isReady;
 
+        /// <summary>
+        /// Latch for the single in-flight <see cref="InitializeAsync"/> run. Cleared in
+        /// <see cref="RunInitializeAsync"/>'s finally so a failed or cancelled attempt can retry.
+        /// </summary>
+        bool _initializing;
+
+        /// <summary>Preserved so more than one caller can await the same initialization run.</summary>
+        UniTask _initTask;
+
         // ── Volume ───────────────────────────────────────────────────────────────────
         float _masterVolume   = 1f;
         float _bgmVolume      = 1f;
         float _sfxVolume      = 1f;
         float _ambienceVolume = 1f;
         bool  _isMuted;
-        // Pre-mute master saved so we can restore the exact value on unmute.
-        float _preMuteMaster;
 
+        /// <inheritdoc/>
         public event Action OnVolumeChanged;
 
+        /// <inheritdoc/>
         public bool  IsReady       => _isReady;
         public float MasterVolume  => _masterVolume;
         public float BgmVolume     => _bgmVolume;
         public float SfxVolume     => _sfxVolume;
         public float AmbienceVolume => _ambienceVolume;
         public bool  IsMuted        => _isMuted;
+
+        /// <inheritdoc/>
         public string CurrentBgmKey => _currentBgmKey;
 
         // ── Constructor ───────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Creates the manager and its <c>[AudioManager]</c> source host. Omit
+        /// <paramref name="loader"/> to load clips from Resources, or
+        /// <paramref name="store"/> to persist volumes in <c>PlayerPrefs</c> — pass your own to
+        /// swap in Addressables loading or a different persistence backend.
+        /// </summary>
         public AudioManager(ISoundClipLoader loader = null, IVolumeStore store = null)
         {
             _loader = loader ?? new ResourcesSoundClipLoader();
@@ -78,11 +101,16 @@ namespace KidzDev.Unity.Audio
             _ambience = new AmbienceChannel(audioRoot);
         }
 
-        // Set by AudioServiceRunner so fades/operations cancel when the scene owner is destroyed.
+        /// <summary>
+        /// Supplies the token that cancels in-flight fades and loads when the owner is destroyed.
+        /// <see cref="AudioServiceRunner"/> wires this automatically; call it yourself only when
+        /// constructing the manager directly.
+        /// </summary>
         public void SetLifetimeCancellationToken(CancellationToken ct) => _lifetimeCt = ct;
 
         // ── Init ─────────────────────────────────────────────────────────────────────
 
+        /// <inheritdoc/>
         public void Configure(AudioServiceSettings settings = null)
         {
             if (settings == null)
@@ -101,32 +129,53 @@ namespace KidzDev.Unity.Audio
             _sfx.Reconfigure(settings.SfxPoolSize, settings.SfxPoolCap);
             SetMixer(settings.Mixer);
 
-            // Re-key store to match settings keys
             if (_store is PlayerPrefsVolumeStore)
                 _store = new PlayerPrefsVolumeStore(settings.MasterVolumeKey, settings.BgmVolumeKey, settings.SfxVolumeKey, settings.AmbienceVolumeKey);
 
             _library?.BuildMap();
         }
 
-        public async UniTask InitializeAsync(CancellationToken ct = default)
+        /// <inheritdoc/>
+        public UniTask InitializeAsync(CancellationToken ct = default)
         {
-            RestoreVolumes();
-            ApplyAllVolumes();
+            if (_isReady) return UniTask.CompletedTask;
 
-            if (_library != null)
-                await WarmAsync(ct);
+            if (!_initializing)
+            {
+                _initializing = true;
+                _initTask     = RunInitializeAsync(ct).Preserve();
+            }
+            return _initTask;
+        }
 
-            _isReady = true;
+        async UniTask RunInitializeAsync(CancellationToken ct)
+        {
+            try
+            {
+                RestoreVolumes();
+                ApplyAllVolumes();
+
+                if (_library != null)
+                    await WarmAsync(ct);
+
+                _isReady = true;
+            }
+            finally
+            {
+                _initializing = false;
+            }
         }
 
         // ── BGM ──────────────────────────────────────────────────────────────────────
 
+        /// <inheritdoc/>
         public void PlayBgm(string key) => PlayBgmAsync(key, _lifetimeCt).Forget();
 
+        /// <inheritdoc/>
         public async UniTask PlayBgmAsync(string key, CancellationToken ct = default)
         {
             if (string.IsNullOrEmpty(key)) return;
-            if (key == _currentBgmKey) return; // dedupe
+            if (key == _currentBgmKey) return;
 
             _pendingBgmKey = key;
 
@@ -140,6 +189,7 @@ namespace KidzDev.Unity.Audio
             await _bgm.PlayAsync(clip, entry, _bgmFade, _lifetimeCt);
         }
 
+        /// <inheritdoc/>
         public void PlayBgm(AudioClip clip, bool loop = true)
         {
             _currentBgmKey = null;
@@ -147,6 +197,7 @@ namespace KidzDev.Unity.Audio
             _bgm.PlayDirect(clip, loop);
         }
 
+        /// <inheritdoc/>
         public void StopBgm()
         {
             _currentBgmKey = null;
@@ -154,31 +205,39 @@ namespace KidzDev.Unity.Audio
             _bgm.StopAsync(_bgmFade, _lifetimeCt).Forget();
         }
 
+        /// <inheritdoc/>
         public void PauseBgm()  => _bgm.Pause();
+
+        /// <inheritdoc/>
         public void ResumeBgm() => _bgm.Resume();
 
         // ── SFX ──────────────────────────────────────────────────────────────────────
 
+        /// <inheritdoc/>
         public void PlaySfx(string key)
         {
             if (string.IsNullOrEmpty(key)) return;
             LoadAndPlaySfx(key, GetEntry(key)).Forget();
         }
 
+        /// <inheritdoc/>
         public void PlaySfx(AudioClip clip, float volume = 1f) => _sfx.PlayDirect(clip, volume);
 
+        /// <inheritdoc/>
         public void PlaySfx(string key, float startPitch, float endPitch, float duration)
         {
             if (string.IsNullOrEmpty(key)) return;
             LoadAndPitchRamp(key, GetEntry(key), startPitch, endPitch, duration).Forget();
         }
 
+        /// <inheritdoc/>
         public void PlaySfxAt(string key, Vector3 worldPos)
         {
             if (string.IsNullOrEmpty(key)) return;
             LoadAndPlayAt(key, GetEntry(key), worldPos).Forget();
         }
 
+        /// <inheritdoc/>
         public void PlayLoopSfx(string key)
         {
             if (string.IsNullOrEmpty(key)) return;
@@ -189,6 +248,7 @@ namespace KidzDev.Unity.Audio
             LoadAndPlayLoop(key, GetEntry(key), cts.Token).Forget();
         }
 
+        /// <inheritdoc/>
         public void StopLoopSfx(string key)
         {
             // Cancel in-flight load so stop wins even before the clip finishes loading.
@@ -198,55 +258,84 @@ namespace KidzDev.Unity.Audio
 
         // ── Ambience ─────────────────────────────────────────────────────────────────
 
+        /// <inheritdoc/>
         public void PlayAmbience(string key)
         {
             if (string.IsNullOrEmpty(key) || key == _ambience.CurrentKey) return;
             LoadAndPlayAmbience(key, GetEntry(key)).Forget();
         }
 
+        /// <inheritdoc/>
         public void StopAmbience() => _ambience.StopAsync(_ambienceFade, _lifetimeCt).Forget();
 
         // ── Playlist ─────────────────────────────────────────────────────────────────
 
+        /// <inheritdoc/>
         public BgmPlaylist CreatePlaylist(params string[] keys) => new BgmPlaylist(this, keys);
 
         // ── Volume ───────────────────────────────────────────────────────────────────
 
+        // While muted, every setter still records + persists the new value but must not make
+        // audio audible again — SetMute(false) is what re-applies whatever the latest values are.
+
+        /// <inheritdoc/>
         public void SetMasterVolume(float v01)
         {
             _masterVolume = AudioVolume.Clamp(v01);
-            ApplyMixerVolume(_paramMaster, _masterVolume);
+            if (!_isMuted)
+            {
+                ApplyMixerVolume(_paramMaster, _masterVolume);
+                if (_mixer == null)
+                {
+                    _bgm.SetVolume(NoMixerVolume(_bgmVolume));
+                    _sfx.SetVolume(NoMixerVolume(_sfxVolume));
+                    _ambience.SetVolume(NoMixerVolume(_ambienceVolume));
+                }
+            }
             _store.SaveMasterVolume(_masterVolume);
             OnVolumeChanged?.Invoke();
         }
 
+        /// <inheritdoc/>
         public void SetBgmVolume(float v01)
         {
             _bgmVolume = AudioVolume.Clamp(v01);
-            ApplyMixerVolume(_paramBgm, _bgmVolume);
-            _bgm.SetVolume(_mixer != null ? 1f : _bgmVolume);
+            if (!_isMuted)
+            {
+                ApplyMixerVolume(_paramBgm, _bgmVolume);
+                _bgm.SetVolume(_mixer != null ? 1f : NoMixerVolume(_bgmVolume));
+            }
             _store.SaveBgmVolume(_bgmVolume);
             OnVolumeChanged?.Invoke();
         }
 
+        /// <inheritdoc/>
         public void SetSfxVolume(float v01)
         {
             _sfxVolume = AudioVolume.Clamp(v01);
-            ApplyMixerVolume(_paramSfx, _sfxVolume);
-            _sfx.SetVolume(_mixer != null ? 1f : _sfxVolume);
+            if (!_isMuted)
+            {
+                ApplyMixerVolume(_paramSfx, _sfxVolume);
+                _sfx.SetVolume(_mixer != null ? 1f : NoMixerVolume(_sfxVolume));
+            }
             _store.SaveSfxVolume(_sfxVolume);
             OnVolumeChanged?.Invoke();
         }
 
+        /// <inheritdoc/>
         public void SetAmbienceVolume(float v01)
         {
             _ambienceVolume = AudioVolume.Clamp(v01);
-            ApplyMixerVolume(_paramAmbience, _ambienceVolume);
-            _ambience.SetVolume(_mixer != null ? 1f : _ambienceVolume);
+            if (!_isMuted)
+            {
+                ApplyMixerVolume(_paramAmbience, _ambienceVolume);
+                _ambience.SetVolume(_mixer != null ? 1f : NoMixerVolume(_ambienceVolume));
+            }
             _store.SaveAmbienceVolume(_ambienceVolume);
             OnVolumeChanged?.Invoke();
         }
 
+        /// <inheritdoc/>
         public void SetMute(bool mute)
         {
             if (_isMuted == mute) return;
@@ -254,7 +343,6 @@ namespace KidzDev.Unity.Audio
 
             if (mute)
             {
-                _preMuteMaster = _masterVolume;
                 ApplyMixerVolume(_paramMaster, 0f);
                 if (_mixer == null)
                 {
@@ -268,9 +356,9 @@ namespace KidzDev.Unity.Audio
                 ApplyMixerVolume(_paramMaster, _masterVolume);
                 if (_mixer == null)
                 {
-                    _bgm.SetVolume(_bgmVolume);
-                    _sfx.SetVolume(_sfxVolume);
-                    _ambience.SetVolume(_ambienceVolume);
+                    _bgm.SetVolume(NoMixerVolume(_bgmVolume));
+                    _sfx.SetVolume(NoMixerVolume(_sfxVolume));
+                    _ambience.SetVolume(NoMixerVolume(_ambienceVolume));
                 }
             }
 
@@ -279,6 +367,7 @@ namespace KidzDev.Unity.Audio
 
         // ── Memory ───────────────────────────────────────────────────────────────────
 
+        /// <inheritdoc/>
         public void ReleaseCategory(SoundCategory category)
         {
             if (_library == null) return;
@@ -308,11 +397,12 @@ namespace KidzDev.Unity.Audio
             }
         }
 
+        /// <inheritdoc/>
         public void Release()
         {
             // Stop all active playback before evicting clips so AudioSources don't hold freed handles.
             _bgm.StopAsync(0f, _lifetimeCt).Forget();      // immediate stop (0-duration → no yield)
-            _ambience.StopAsync(0f, _lifetimeCt).Forget();  // immediate stop
+            _ambience.StopAsync(0f, _lifetimeCt).Forget();
             CancelAllPendingLoops();
             _sfx.StopAllLoops();
             _currentBgmKey = null;
@@ -322,6 +412,10 @@ namespace KidzDev.Unity.Audio
 
         // ── Lifecycle ────────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Pauses BGM while the app is backgrounded and resumes it on return.
+        /// <see cref="AudioServiceRunner"/> forwards Unity's pause/focus callbacks here.
+        /// </summary>
         public void OnApplicationPause(bool paused)
         {
             if (paused) PauseBgm();
@@ -388,9 +482,9 @@ namespace KidzDev.Unity.Audio
 
             if (_mixer == null)
             {
-                _bgm.SetVolume(_bgmVolume);
-                _sfx.SetVolume(_sfxVolume);
-                _ambience.SetVolume(_ambienceVolume);
+                _bgm.SetVolume(NoMixerVolume(_bgmVolume));
+                _sfx.SetVolume(NoMixerVolume(_sfxVolume));
+                _ambience.SetVolume(NoMixerVolume(_ambienceVolume));
             }
         }
 
@@ -399,6 +493,10 @@ namespace KidzDev.Unity.Audio
             if (_mixer == null) return;
             _mixer.SetFloat(param, AudioVolume.RatioToDB(v01));
         }
+
+        // Mixer path: Unity's own bus hierarchy composes Master -> Category (channels always get 1f).
+        // No-mixer path: manually compose master x category since there's no bus to do it for us.
+        float NoMixerVolume(float categoryVolume) => _masterVolume * categoryVolume;
 
         async UniTask WarmAsync(CancellationToken ct)
         {
@@ -464,6 +562,10 @@ namespace KidzDev.Unity.Audio
             if (clip != null) await _ambience.PlayAsync(key, clip, entry, _ambienceFade, _lifetimeCt);
         }
 
+        /// <summary>
+        /// Releases all clips and destroys the <c>[AudioManager]</c> host GameObject with its
+        /// sources. The instance is not reusable afterwards.
+        /// </summary>
         public void Dispose()
         {
             Release();

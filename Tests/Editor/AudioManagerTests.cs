@@ -1,9 +1,11 @@
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace KidzDev.Unity.Audio.Tests
 {
@@ -131,7 +133,69 @@ namespace KidzDev.Unity.Audio.Tests
             Assert.IsTrue(_loader.ReleaseAllCalled);
         }
 
+        // ── Loop SFX source ownership ─────────────────────────────────────────────────
+
+        [Test]
+        public void PlayLoopSfx_PoolExhausted_DoesNotStealAnActiveLoop()
+        {
+            ConfigureTinyPool();
+
+            _manager.PlayLoopSfx("sfx_a");
+            var src = SingleSfxSource();
+            Assert.IsNotNull(src.clip, "loop sfx_a should own the pool's only source");
+
+            LogAssert.Expect(LogType.Warning, new Regex("SFX pool exhausted"));
+            _manager.PlayLoopSfx("sfx_b");
+
+            _manager.StopLoopSfx("sfx_b");
+            Assert.IsNotNull(
+                src.clip,
+                "sfx_b was rejected so it must never have been registered — stopping it must not tear down sfx_a's source");
+        }
+
+        [Test]
+        public void StopLoopSfx_ReturnsSourceToPool_SoAnotherLoopCanTakeIt()
+        {
+            ConfigureTinyPool();
+
+            _manager.PlayLoopSfx("sfx_a");
+            _manager.StopLoopSfx("sfx_a");
+
+            _manager.PlayLoopSfx("sfx_b");
+            Assert.IsNotNull(
+                SingleSfxSource().clip,
+                "stopping a loop must un-reserve its source, otherwise the pool leaks and later loops starve");
+        }
+
         // ── Helpers ───────────────────────────────────────────────────────────────────
+
+        void ConfigureTinyPool()
+        {
+            var settings = ScriptableObject.CreateInstance<AudioServiceSettings>();
+            var so = new SerializedObject(settings);
+            so.FindProperty("_library").objectReferenceValue    = _lib;
+            so.FindProperty("_bgmFadeDuration").floatValue      = 0f;
+            so.FindProperty("_ambienceFadeDuration").floatValue = 0f;
+            so.FindProperty("_sfxPoolSize").intValue            = 1;
+            so.FindProperty("_sfxPoolCap").intValue             = 1;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            _manager.Configure(settings);
+            Object.DestroyImmediate(settings);
+        }
+
+        static AudioSource SingleSfxSource()
+        {
+            var root = GameObject.Find("[AudioManager]");
+            Assert.IsNotNull(root, "[AudioManager] host object should exist while the manager is alive");
+
+            var sfx = new List<AudioSource>();
+            foreach (var src in root.GetComponentsInChildren<AudioSource>(true))
+                if (src.gameObject.name.StartsWith("SfxSource"))
+                    sfx.Add(src);
+
+            Assert.AreEqual(1, sfx.Count, "a cap-1 pool should expose exactly one SFX source");
+            return sfx[0];
+        }
 
         void ConfigureZeroFade()
         {
